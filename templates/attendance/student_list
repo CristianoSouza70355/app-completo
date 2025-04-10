@@ -1,0 +1,178 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+<h2>CADASTRO</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Cadastrar aluno</h5>
+        <form method="post" id="studentForm">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="button" class="btn btn-secondary" onclick="previewData()">Pré-visualizar</button>
+            <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de Pré-visualização -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pré-visualização do Cadastro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Nome:</dt>
+                    <dd class="col-sm-9" id="previewName"></dd>
+                    
+                    <dt class="col-sm-3">Matrícula:</dt>
+                    <dd class="col-sm-9" id="previewRegistration"></dd>
+                    
+                    <dt class="col-sm-3">Contato:</dt>
+                    <dd class="col-sm-9" id="previewContact"></dd>
+                    
+                    <dt class="col-sm-3">Documento:</dt>
+                    <dd class="col-sm-9" id="previewDocument"></dd>
+                </dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" onclick="submitForm()">Confirmar Cadastro</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <h5 class="card-header">Relatórios</h5>
+    <div class="card-body">
+        <form method="get" action="{% url 'generate_report' %}" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Nome do Aluno</label>
+                <input type="text" name="student_name" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data Inicial</label>
+                <input type="date" name="start_date" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data Final</label>
+                <input type="date" name="end_date" class="form-control">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Gerar Relatório PDF</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Alunos cadastrados</h5>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Matrícula</th>
+                    <th>Contato</th>
+                    <th>Documento</th>
+                    <th>Frequência</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr data-student-id="{{ student.id }}">
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.registration }}</td>
+                    <td>{{ student.contact }}</td>
+                    <td>{{ student.document }}</td>
+                    <td>
+                        <button class="btn btn-success btn-sm" onclick="markAttendance({{ student.id }}, true)">Presente</button>
+                        <button class="btn btn-danger btn-sm" onclick="markAttendance({{ student.id }}, false)">Ausente</button>
+                    </td>
+                    <td>
+                        <a href="{% url 'edit_student' student.id %}" class="btn btn-sm btn-warning">Editar</a>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteStudent({{ student.id }})">Excluir</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function previewData() {
+    document.getElementById('previewName').textContent = document.querySelector('[name="name"]').value;
+    document.getElementById('previewRegistration').textContent = document.querySelector('[name="registration"]').value;
+    document.getElementById('previewContact').textContent = document.querySelector('[name="contact"]').value;
+    document.getElementById('previewDocument').textContent = document.querySelector('[name="document"]').value;
+    
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+function submitForm() {
+    document.getElementById('studentForm').submit();
+}
+
+function markAttendance(studentId, isPresent) {
+    const today = new Date().toISOString().split('T')[0];
+    const data = {
+        student_id: studentId,
+        is_present: isPresent,
+        date: today
+    };
+
+    fetch('/marcar-frequencia/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(isPresent ? 'Presença registrada!' : 'Ausência registrada!');
+        } else {
+            alert('Erro ao registrar frequência!');
+        }
+    });
+}
+
+function deleteStudent(studentId) {
+    if (confirm('Tem certeza que deseja excluir este aluno?')) {
+        fetch(`/aluno/${studentId}/excluir/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Aluno excluído com sucesso!');
+                // Remove a linha da tabela sem recarregar a página
+                const row = document.querySelector(`tr[data-student-id="${studentId}"]`);
+                if (row) {
+                    row.remove();
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert('Erro ao excluir aluno: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erro ao excluir aluno');
+        });
+    }
+}
+</script>
+{% endblock %}
