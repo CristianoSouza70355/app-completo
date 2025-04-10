@@ -1,0 +1,115 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+<h2>FREQUÊNCIA</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Pesquisar Aluno</label>
+                <input type="text" class="form-control" id="searchStudent" placeholder="Digite o nome do aluno">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Data</label>
+                <input type="date" class="form-control" id="attendanceDate" value="{% now 'Y-m-d' %}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Matrícula</th>
+                    <th>Frequência</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr>
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.registration }}</td>
+                    <td>
+                        <button class="btn btn-success btn-sm" onclick="markAttendance({{ student.id }}, true)">
+                            PRESENTE
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="markAttendance({{ student.id }}, false)">
+                            AUSENTE
+                        </button>
+                        <button class="btn btn-warning btn-sm" onclick="correctAttendance({{ student.id }})">
+                            CORRIGIR
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteStudent({{ student.id }})">
+                            EXCLUIR
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function markAttendance(studentId, isPresent) {
+    const date = document.getElementById('attendanceDate').value;
+    const data = {
+        student_id: studentId,
+        is_present: isPresent,
+        date: date
+    };
+
+    fetch('/marcar-frequencia/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(isPresent ? 'Presença registrada!' : 'Ausência registrada!');
+        } else {
+            alert('Erro ao registrar frequência!');
+        }
+    });
+}
+
+document.getElementById('searchStudent').addEventListener('input', function(e) {
+    const searchText = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const name = row.querySelector('td').textContent.toLowerCase();
+        row.style.display = name.includes(searchText) ? '' : 'none';
+    });
+});
+
+
+function deleteStudent(studentId) {
+    if (confirm('Tem certeza que deseja excluir este aluno?')) {
+        fetch(`/alunos/${studentId}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Aluno excluído com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro ao excluir aluno!');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
