@@ -1,0 +1,17 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="text-center mb-4">FREQUÊNCIA APAE</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Senha:</label>
+                {{ form.password }}
+            </div>
+            <button type="submit" class="btn btn-primary w-100">ENTRAR</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
